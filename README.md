@@ -1,54 +1,8 @@
-# 蚂蚁保实习复盘归档
+# Thoughts
 
-> 实习单位：蚂蚁保保险代理有限公司 | 部门：财保技术部-保险技术部 | 岗位：实习开发工程师（Agent 研发方向）
+主要整理：
 
----
-
-## 这是什么？
-
-本仓库是我在蚂蚁保实习的**全生命周期复盘系统**，覆盖实习前准备、实习中记录、实习后总结三个阶段。所有内容以 Markdown 形式归档，便于 GitHub 渲染和检索。
-
-## 快速导航
-
-| 阶段 | 目录 | 说明 |
-|------|------|------|
-| 模板 | [0-templates/](0-templates/) | 可复用的文档模板，新建记录时复制使用 |
-| 实习前 | [1-pre-internship/](1-pre-internship/) | 产品调研、业务知识学习、技术栈储备 |
-| 实习中 | [2-during-internship/](2-during-internship/) | 日报、周报、项目文档、会议记录 |
-| 实习后 | [3-post-internship/](3-post-internship/) | 整体总结、技术产出归档、个人反思 |
-| 资源 | [assets/](assets/) | 架构图、流程图、截图等二进制资源 |
-
-## 使用方法
-
-### 日报（每天 5 分钟）
-
-```bash
-cp 0-templates/daily-log.md 2-during-internship/daily-logs/YYYY-MM-DD.md
-# 编辑当天的日报，重点记录：做了什么、学到什么、遇到什么问题
-```
-
-### 周报（每周五 20 分钟）
-
-```bash
-cp 0-templates/weekly-review.md 2-during-internship/weekly-reviews/week-NN.md
-# 复盘本周的收获、挑战、和下周计划
-```
-
-### 项目文档（按需）
-
-```bash
-cp 0-templates/project-doc.md 2-during-internship/projects/project-name.md
-```
-
-### 调研/学习笔记（按需）
-
-```bash
-cp 0-templates/research-topic.md 1-pre-internship/product-research/topic-name.md
-```
-
-## 设计原则
-
-- **低摩擦** — 模板驱动，复制即用，日报控制在 5 分钟内
-- **结构化** — 统一模板确保信息不遗漏，便于后期检索
-- **全周期** — 覆盖实习前中后，形成完整成长轨迹
-- **面向复盘** — 每条记录都包含「学到了什么」「下次怎么做」等反思维度
+1. 实习期间的产出和复盘
+2. 简历版本
+3. 学习笔记
+4. 职场 tips

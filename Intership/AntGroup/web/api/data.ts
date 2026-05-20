@@ -1,5 +1,16 @@
 // Vercel Serverless Function — GitHub API proxy for data persistence
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+// Uses standard Node.js types, no external dependencies required
+
+interface VercelRequest {
+  method?: string
+  body?: any
+  query: Record<string, string>
+}
+
+interface VercelResponse {
+  status(code: number): VercelResponse
+  json(data: any): void
+}
 
 const OWNER = process.env.GITHUB_OWNER || ''
 const REPO = process.env.GITHUB_REPO || ''
@@ -49,12 +60,10 @@ async function saveFile(key: string, content: any, sha: string | null): Promise<
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Auth check
   if (!OWNER || !REPO || !TOKEN) {
     return res.status(500).json({ error: 'Missing GITHUB_OWNER, GITHUB_REPO, or GITHUB_TOKEN env vars' })
   }
 
-  // GET: load all data
   if (req.method === 'GET') {
     const result: Record<string, any> = {}
     for (const key of DATA_KEYS) {
@@ -68,7 +77,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(result)
   }
 
-  // POST: save one key { key, data }
   if (req.method === 'POST') {
     const { key, data } = req.body || {}
     if (!key || data === undefined) {
@@ -82,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const existing = await loadFile(key)
       sha = existing?.sha ?? null
-    } catch { /* file may not exist yet */ }
+    } catch { /* file may not exist */ }
 
     try {
       await saveFile(key, data, sha)

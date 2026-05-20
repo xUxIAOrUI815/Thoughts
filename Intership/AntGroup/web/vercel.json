@@ -6,6 +6,10 @@
       "config": {
         "distDir": "dist"
       }
+    },
+    {
+      "src": "api/data.ts",
+      "use": "@vercel/node"
     }
   ],
   "rewrites": [

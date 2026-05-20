@@ -1,11 +1,11 @@
 // Vercel Serverless Function — GitHub API proxy for data persistence
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 const OWNER = process.env.GITHUB_OWNER || ''
 const REPO = process.env.GITHUB_REPO || ''
 const TOKEN = process.env.GITHUB_TOKEN || ''
 const BRANCH = process.env.GITHUB_BRANCH || 'main'
 const DATA_PREFIX = 'Intership/AntGroup/data'
-
 const API_BASE = `https://api.github.com/repos/${OWNER}/${REPO}/contents`
 
 const DATA_KEYS = [
@@ -13,32 +13,25 @@ const DATA_KEYS = [
   'daily-logs', 'weekly-reviews', 'projects', 'post-data',
 ]
 
-function checkConfig() {
-  if (!OWNER || !REPO || !TOKEN) {
-    return { ok: false, error: 'Missing GITHUB_OWNER, GITHUB_REPO, or GITHUB_TOKEN env vars' }
-  }
-  return { ok: true as const, error: null }
-}
-
-function ghHeaders() {
+function ghHeaders(): Record<string, string> {
   return {
     Authorization: `Bearer ${TOKEN}`,
-    'Content-Type': 'application/json',
     Accept: 'application/vnd.github.v3+json',
   }
 }
 
-// Load a single file from the repo
 async function loadFile(key: string): Promise<{ data: any; sha: string } | null> {
   const path = `${DATA_PREFIX}/${key}.json`
   const res = await fetch(`${API_BASE}/${path}?ref=${BRANCH}`, { headers: ghHeaders() })
   if (res.status === 404) return null
-  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${await res.text()}`)
-  const json = await res.json() as { content: string; sha: string }
-  return { data: JSON.parse(Buffer.from(json.content, 'base64').toString('utf-8')), sha: json.sha }
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`)
+  const json = (await res.json()) as { content: string; sha: string }
+  return {
+    data: JSON.parse(Buffer.from(json.content, 'base64').toString('utf-8')),
+    sha: json.sha,
+  }
 }
 
-// Save a single file to the repo
 async function saveFile(key: string, content: any, sha: string | null): Promise<void> {
   const path = `${DATA_PREFIX}/${key}.json`
   const body = {
@@ -49,77 +42,55 @@ async function saveFile(key: string, content: any, sha: string | null): Promise<
   }
   const res = await fetch(`${API_BASE}/${path}`, {
     method: 'PUT',
-    headers: ghHeaders(),
+    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`GitHub API error ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`)
 }
 
-// GET /api/data — load everything
-async function handleGET(): Promise<Response> {
-  const result: Record<string, any> = {}
-  for (const key of DATA_KEYS) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Auth check
+  if (!OWNER || !REPO || !TOKEN) {
+    return res.status(500).json({ error: 'Missing GITHUB_OWNER, GITHUB_REPO, or GITHUB_TOKEN env vars' })
+  }
+
+  // GET: load all data
+  if (req.method === 'GET') {
+    const result: Record<string, any> = {}
+    for (const key of DATA_KEYS) {
+      try {
+        const file = await loadFile(key)
+        result[key] = file?.data ?? null
+      } catch {
+        result[key] = null
+      }
+    }
+    return res.status(200).json(result)
+  }
+
+  // POST: save one key { key, data }
+  if (req.method === 'POST') {
+    const { key, data } = req.body || {}
+    if (!key || data === undefined) {
+      return res.status(400).json({ error: 'Missing key or data in body' })
+    }
+    if (!DATA_KEYS.includes(key)) {
+      return res.status(400).json({ error: `Unknown key: ${key}` })
+    }
+
+    let sha: string | null = null
     try {
-      const file = await loadFile(key)
-      result[key] = file?.data ?? null
-    } catch {
-      result[key] = null
+      const existing = await loadFile(key)
+      sha = existing?.sha ?? null
+    } catch { /* file may not exist yet */ }
+
+    try {
+      await saveFile(key, data, sha)
+      return res.status(200).json({ ok: true, key })
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message })
     }
   }
-  return new Response(JSON.stringify(result), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  })
+
+  return res.status(405).json({ error: 'Method not allowed' })
 }
-
-// POST /api/data — save one key
-// Body: { key: string, data: any }
-async function handlePOST(req: Request): Promise<Response> {
-  let body: { key: string; data: any }
-  try {
-    body = await req.json()
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 })
-  }
-
-  if (!body.key || body.data === undefined) {
-    return new Response(JSON.stringify({ error: 'Missing key or data' }), { status: 400 })
-  }
-
-  if (!DATA_KEYS.includes(body.key)) {
-    return new Response(JSON.stringify({ error: `Unknown key: ${body.key}. Allowed: ${DATA_KEYS.join(', ')}` }), { status: 400 })
-  }
-
-  // Get current sha
-  let sha: string | null = null
-  try {
-    const existing = await loadFile(body.key)
-    sha = existing?.sha ?? null
-  } catch { /* file doesn't exist, will create */ }
-
-  try {
-    await saveFile(body.key, body.data, sha)
-    return new Response(JSON.stringify({ ok: true, key: body.key }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 })
-  }
-}
-
-// Vercel function handler
-export default async function handler(req: Request): Promise<Response> {
-  const config = checkConfig()
-  if (!config.ok) {
-    return new Response(JSON.stringify({ error: config.error }), { status: 500 })
-  }
-
-  if (req.method === 'GET') return handleGET()
-  if (req.method === 'POST') return handlePOST(req)
-
-  return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
-}
-
-// Configure runtime
-export const config = { runtime: 'nodejs20' }
